@@ -1,5 +1,7 @@
 import os
 import threading
+import warnings
+import importlib.metadata as metadata
 import customtkinter as ctk
 from tkinter import filedialog
 from datetime import datetime
@@ -8,12 +10,30 @@ from PIL import Image
 import pystray
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from subliminal import download_best_subtitles, save_subtitles, scan_video, region
 from babelfish import Language
-from datetime import timedelta
 
-# === CACHE ===
-region.configure('dogpile.cache.dbm', arguments={'filename': 'subliminal_cache.dbm'})
+
+def configure_subliminal():
+    try:
+        chardet_version = metadata.version("chardet")
+    except metadata.PackageNotFoundError:
+        chardet_version = None
+
+    if chardet_version:
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*doesn't match a supported version.*",
+            category=Warning,
+            module="requests",
+        )
+
+    from subliminal import download_best_subtitles, save_subtitles, scan_video, region
+
+    region.configure("dogpile.cache.dbm", arguments={"filename": "subliminal_cache.dbm"})
+    return download_best_subtitles, save_subtitles, scan_video
+
+
+download_best_subtitles, save_subtitles, scan_video = configure_subliminal()
 
 # === SABİTLER ===
 BG_DARK = "#0f0f0f"
@@ -251,7 +271,7 @@ def create_tray(app):
         pystray.MenuItem("Göster/Gizle", on_show_hide),
         pystray.MenuItem("Çıkış", on_exit)
     )
-    threading.Thread(target=pystray.Icon("subwatch", icon_image, "Subliminal Altyazı", menu).run, daemon=True).start()
+    pystray.Icon("subwatch", icon_image, "Subliminal Altyazı", menu).run_detached()
 
 if __name__ == "__main__":
     app = SubtitleDownloaderApp()
